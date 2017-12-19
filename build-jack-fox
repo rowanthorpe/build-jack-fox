@@ -1,0 +1,288 @@
+#!/bin/sh
+
+# build-jack-fox (version 0.1.0):
+#
+#  A tool for automating a custom build of Firefox with libjack (primarily
+#  for people wanting to avoid installing PulseAudio
+#
+#  Copyright © 2017 Rowan Thorpe <rowan@rowanthorpe.com>
+#
+#  build-jack-fox is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  build-jack-fox is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with build-jack-fox. If not, see <http://www.gnu.org/licenses/>.
+
+set -e
+
+. "$(dirname "${0}")/conf.sh"
+
+do_download=1
+do_patch=1
+do_install_build_deps=1
+do_unpack=1
+do_build=1
+do_tests=0
+do_install=0
+
+while test ${#} -ne 0; do
+  case "${1}" in
+    --help|-h)
+      cat <<EOF
+${0##*/} [--help|-h]
+${0##*/} [--no-download|--no-patch|--no-install-build-deps|--no-unpack|--no-build|--do-tests|--do-install]
+EOF
+      exit 0
+      ;;
+    --no-download)
+      do_download=0
+      shift
+      ;;
+    --no-patch)
+      do_patch=0
+      shift
+      ;;
+    --no-install-build-deps)
+      do_install_build_deps=0
+      shift
+      ;;
+    --no-unpack)
+      do_unpack=0
+      shift
+      ;;
+    --no-build)
+      do_build=0
+      shift
+      ;;
+    --do-tests)
+      do_tests=1
+      shift
+      ;;
+    --do-install)
+      do_install=1
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      printf 'Unrecognized optflag "%s"\n' "${1}" >&2
+      exit 1
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+get_full_versions() { apt-cache policy "${1}" | sed -n -e 's/^ \(\*\*\*\|   \) \([^ ]\+\) .*$/\2/' -e tP -e b -e :P -e p; }
+
+get_latest_full_version() {
+  get_full_versions "${1}" | sed -e '/-local[0-9]\+$/d' | \
+    if test -n "${2}"; then
+      sed -e "/^$(printf '%s\n' "${2}" | sed -e 's/\./\\./g')-/!d"
+    else
+      cat
+    fi | \
+    head -n 1
+}
+
+lang_cap() {
+  printf %s "${1}" | cut -d- -f1 | tr -d '\n'
+  if printf '%s' "${1}" | grep -q -- -; then
+    printf -- -; printf '%s' "${1}" | cut -d- -f2- | tr '[a-z]' '[A-Z]'
+  fi
+}
+
+latest_nonlocal_full_version="$(get_latest_full_version firefox $(printf '%s' "${version}" | sed -e 's/-.*$//'))"
+
+srcdir="${srcdir:-/usr/local/src/firefox-custom}"
+version="${version:-$(printf '%s' "${latest_nonlocal_full_version}" | sed -e 's/-.*$//')}"
+version_suffix="${version_suffix:-local1}"
+jack_dev_pkg="${jack_dev_pkg:-libjack-jackd2-dev}"
+jack_full_version="${jack_full_version:-$(get_latest_full_version "${jack_dev_pkg}")}"
+name="${name:-Blah}"
+email="${email:-blah@example.com}"
+date="${date:-$(date '+%a, %e %b %Y %H:%M:%S %z')}"
+
+cat <<EOF >&2
+==========
+srcdir=${srcdir}
+version=${version}
+version_suffix=${version_suffix}
+jack_dev_pkg=${jack_dev_pkg}
+jack_full_version=${jack_full_version}
+langs=${langs:-[all available in downloaded package]}
+name=${name}
+email=${email}
+date=${date}
+==========
+<Hit enter>
+EOF
+read temp
+
+cd "${srcdir}"
+
+if test 1 -eq ${do_download}; then
+  apt-get --dsc-only source "firefox=${latest_nonlocal_full_version}"
+  apt-get --diff-only source "firefox=${latest_nonlocal_full_version}"
+  # TODO: check existing files against entries in .dsc, and skip curl-download if OK
+  curl -L --output "firefox_${version}.orig.tar.xz" "http://http.debian.net/debian/pool/main/f/firefox/firefox_${version}.orig.tar.xz"
+  if test -n "${langs}"; then
+    for lang in ${langs}; do
+      curl -L --output "firefox_${version}.orig-l10n-$(lang_cap "${lang}").tar.bz2" "http://http.debian.net/debian/pool/main/f/firefox/firefox_${version}.orig-l10n-$(lang_cap "${lang}").tar.bz2"
+    done
+  else
+    apt-get --tar-only source "firefox=${latest_nonlocal_full_version}"
+  fi
+fi
+
+if test 1 -eq ${do_patch}; then
+  # NB: Patching xx.in and xx files is annoying duplication, but to rebuild the dependent files "debian/rules" (which is a makefile) requires
+  # the upstream source also be unpacked first. Not worth it.
+  debdiff_sha256="$(
+    sha256sum "firefox_${latest_nonlocal_full_version}.debian.tar.xz" | cut -d' ' -f1
+  )"
+  debdiff_sha256_from_dsc="$(
+    sed -n \
+      -e '/^Checksums-Sha256:$/,/^[^ ]/! b' \
+      -e "s/^ \(.*\) [0-9]\+ firefox_${latest_nonlocal_full_version}\\.debian\\.tar\\.xz\$/\\1/" \
+      -e 'tP' \
+      -e 'b' \
+      -e ':P' \
+      -e 'p' \
+      -e 'q' \
+      "firefox_${latest_nonlocal_full_version}.dsc")"
+  if ! test "x${debdiff_sha256}" = "x${debdiff_sha256_from_dsc}"; then
+    printf 'The sha256 checksum in %s for %s is not correct. Aborting.\n' "firefox_${latest_nonlocal_full_version}.dsc" "firefox_${latest_nonlocal_full_version}.debian.tar.xz" >&2
+    exit 1
+  fi
+  tar xJf "firefox_${latest_nonlocal_full_version}.debian.tar.xz"
+  cd debian
+  ## jack dep
+  sed -i -e "s/^\\(Build-Depends: \\)/\\1${jack_dev_pkg},\\n               /" control.in
+  sed -i -e "s/^\\(Build-Depends: \\)/\\1${jack_dev_pkg},\\n               /" control
+  sed -i -e "/^ac_add_options --prefix=\\/usr\$/ a \\
+ac_add_options --enable-jack" browser.mozconfig.in
+  ## langs
+  sed -i -e "/^\\($(printf '%s' "${langs}" | sed -e 's/ \+/\\|/g')\\):/!d" l10n/recommends
+  # TODO: remove compiling/running of tests for faster build
+  sed -i -e "1 i \\
+firefox (${version}-${version_suffix}) experimental; urgency=low\\
+\\
+  Customizations:\\
+\\
+  * Include jack support\\
+\\
+  * Shorten compile-time by:\\
+    -- removing build of unneeded locales\\
+    -- (TODO) removing build of tests\\
+\\
+ -- ${name} <${email}>  ${date}\\
+" changelog
+  cd ..
+  fakeroot tar cJf "firefox_${version}-${version_suffix}.debian.tar.xz" debian
+  rm -fr debian "firefox_${latest_nonlocal_full_version}.debian.tar.xz"
+  sed \
+    -e '/^Binary:/b LOOP' \
+    -e '/^-----BEGIN PGP SIGNATURE-----$/,/^-----END PGP SIGNATURE-----$/d' \
+    -e "s/^\\(Build-Depends:\\)/\\1 ${jack_dev_pkg},/" \
+    -e '/^\( \|$\|Hash:\|-----BEGIN PGP SIGNED MESSAGE-----$\)/d' \
+    -e "s/^\\(Version:\\) .*\$/\\1 ${version}-${version_suffix}/" \
+    -e "s/^\\(Package-List:\\)\$/\\1\\n$(
+      sed -n \
+        -e '/^Package-List:$/,/^[^ ]/! b' \
+        -e "/^ firefox\\(-l10n-\\($(printf %s\\n "el en-gb" | sed -e 's/ \+/\\|/g')\\)\\)\\? deb /! b" \
+        -e 'p' \
+        "firefox_${latest_nonlocal_full_version}.dsc" | sed -e '$! s/$/\\n/' | tr -d '\n'
+    )/" \
+    -e "s/^\\(Checksums-Sha1:\\)\$/\\1\\n$(
+      sed -n \
+        -e '/^Checksums-Sha1:$/,/^[^ ]/! b' \
+        -e '/^ /! b' \
+        -e "/ firefox_58.0~b4\\.orig\\(\\.tar\\.xz\\|-l10n-\\($(for lang in el en-gb; do printf '%s\|' "$(lang_cap "${lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
+        -e '$! s/$/\\n/' \
+        -e 'p' \
+        "firefox_${latest_nonlocal_full_version}.dsc" | tr -d '\n'
+      printf ' %s %s firefox_%s-%s.debian.tar.xz' "$(
+        sha1sum "firefox_${version}-${version_suffix}.debian.tar.xz" | cut -d' ' -f1
+      )" "$(
+        wc -c "firefox_${version}-${version_suffix}.debian.tar.xz" | cut -d' ' -f1
+      )" "${version}" "${version_suffix}"
+    )/" \
+    -e "s/^\\(Checksums-Sha256:\\)\$/\\1\\n$(
+      sed -n \
+        -e '/^Checksums-Sha256:$/,/^[^ ]/! b' \
+        -e '/^ /! b' \
+        -e "/ firefox_58.0~b4\\.orig\\(\\.tar\\.xz\\|-l10n-\\($(for lang in el en-gb; do printf '%s\|' "$(lang_cap "${lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
+        -e '$! s/$/\\n/' \
+        -e 'p' \
+        "firefox_${latest_nonlocal_full_version}.dsc" | tr -d '\n'
+      printf ' %s %s firefox_%s-%s.debian.tar.xz' "$(
+        sha256sum "firefox_${version}-${version_suffix}.debian.tar.xz" | cut -d' ' -f1
+      )" "$(
+        wc -c "firefox_${version}-${version_suffix}.debian.tar.xz" | cut -d' ' -f1
+      )" "${version}" "${version_suffix}"
+    )/" \
+    -e "s/^\\(Files:\\)\$/\\1\\n$(
+      sed -n \
+        -e '/^Files:$/,/^[^ ]/! b' \
+        -e '/^ /! b' \
+        -e "/ firefox_58.0~b4\\.orig\\(\\.tar\\.xz\\|-l10n-\\($(for lang in el en-gb; do printf '%s\|' "$(lang_cap "${lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
+        -e '$! s/$/\\n/' \
+        -e 'p' \
+        "firefox_${latest_nonlocal_full_version}.dsc" | tr -d '\n'
+      printf ' %s %s firefox_%s-%s.debian.tar.xz' "$(
+        md5sum "firefox_${version}-${version_suffix}.debian.tar.xz" | cut -d' ' -f1
+      )" "$(
+        wc -c "firefox_${version}-${version_suffix}.debian.tar.xz" | cut -d' ' -f1
+      )" "${version}" "${version_suffix}"
+    )/" \
+    -e 'b' \
+    -e ':LOOP' \
+    -e 'N' \
+    -e '/,$/!b EXITLOOP' \
+    -e 'b LOOP' \
+    -e ':EXITLOOP' \
+    -e 's/\n//g' \
+    -e "s/^.*\$/Binary: firefox, firefox-l10n-all, $(
+      for lang in ${langs}; do
+        printf 'firefox-l10n-%s, ' "${lang}"
+      done | sed -e 's/, $//'
+    )/" \
+    "firefox_${latest_nonlocal_full_version}.dsc" >"firefox_${version}-${version_suffix}.dsc"
+  rm -f "firefox_${latest_nonlocal_full_version}.dsc"
+fi
+
+if test 1 -eq ${do_install_build_deps}; then
+  # TODO: how to override the "author" of this with the one configured above? (defaults to running user)
+  mk-build-deps "firefox_${version}-${version_suffix}.dsc" 'firefox-build-deps' || : # this seems to "error" if this package is not pre-existing(!)
+  sudo dpkg -i "firefox-build-deps_${version}-${version_suffix}_"*".deb" || sudo apt-get -f install
+fi
+
+if test 1 -eq ${do_unpack}; then
+  ! test -e "firefox-${version}" || mv -fv "firefox-${version}" "firefox-${version}-bak${$}"
+  dpkg-source -x "firefox_${version}-${version_suffix}.dsc"
+fi
+
+if test 1 -eq ${do_build}; then
+  printf '*** About to build the package. Once this is running OK for a few seconds, expect it to run unattended for an hour or two.\n' >&2
+  sleep 2
+  cd "firefox-${version}"
+  dpkg-buildpackage -rfakeroot -b --no-sign
+  cd ..
+fi
+
+if test 1 -eq ${do_install}; then
+  sudo dpkg -i "firefox_${version}-${version_suffix}_amd64.deb" $(
+    for lang in ${langs}; do printf 'firefox-l10n-%s_%s-%s_all.deb ' "${lang}" "${version}" "${version_suffix}"; done
+  )
+fi

@@ -10,6 +10,8 @@ default anytime soon, so the tweaks are an attempt to keep the compile times dow
 I will add proper documentation soon, but for now run `./build-jack-fox --help` for a list of optflags, and edit `conf.sh`
 to setup/modify the more "static" settings.
 
+For background and motivation for this script, see [my blogpost](http://blog.rowanthorpe.com/2017/12/17/firefox-without-pulseaudio-in-debian.html).
+
 Authors
 -------
 

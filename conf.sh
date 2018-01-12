@@ -6,4 +6,4 @@ jack_full_version='' # e.g. '1.9.10+20150825git1ed50c92~dfsg-5', if not set defa
 langs='el en-gb'     # if not set defaults to all languages (set to just what you want, excluding the always-present en-us, to save compile-time)
 name=''              # if not set defaults to 'Blah'
 email=''             # if not set defaults to 'blah@example.com'
-date=''              # the format appropriate for debian changelog, if not set calculated at runtime
+date=''              # the format for 'date' command to use, appropriate for debian changelog, if not set calculated at runtime

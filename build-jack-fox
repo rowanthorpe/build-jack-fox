@@ -146,37 +146,20 @@ cd "${srcdir}"
 if test 1 -eq ${do_download}; then
   apt-get --dsc-only source "firefox=${latest_nonlocal_full_version}"
   apt-get --diff-only source "firefox=${latest_nonlocal_full_version}"
-  # TODO: check existing files against entries in .dsc, and skip curl-download if OK
-  curl -L --output "firefox_${version}.orig.tar.xz" "http://http.debian.net/debian/pool/main/f/firefox/firefox_${version}.orig.tar.xz"
-  if test -n "${langs}"; then
-    for lang in ${langs}; do
-      curl -L --output "firefox_${version}.orig-l10n-$(lang_cap "${lang}").tar.bz2" "http://http.debian.net/debian/pool/main/f/firefox/firefox_${version}.orig-l10n-$(lang_cap "${lang}").tar.bz2"
-    done
-  else
+  if test -z "${langs}"; then
     apt-get --tar-only source "firefox=${latest_nonlocal_full_version}"
+  else
+    curl --continue-at - --location --output "firefox_${version}.orig.tar.bz2" "http://http.debian.net/debian/pool/main/f/firefox/firefox_${version}.orig.tar.bz2"
+    for lang in ${langs}; do
+      curl --continue-at - --location --output "firefox_${version}.orig-l10n-$(lang_cap "${lang}").tar.bz2" "http://http.debian.net/debian/pool/main/f/firefox/firefox_${version}.orig-l10n-$(lang_cap "${lang}").tar.bz2"
+    done
   fi
+  dscverify "firefox_${latest_nonlocal_full_version}.dsc"
 fi
 
 if test 1 -eq ${do_patch}; then
   # NB: Patching xx.in and xx files is annoying duplication, but to rebuild the dependent files "debian/rules" (which is a makefile) requires
   # the upstream source also be unpacked first. Not worth it.
-  debdiff_sha256="$(
-    sha256sum "firefox_${latest_nonlocal_full_version}.debian.tar.xz" | cut -d' ' -f1
-  )"
-  debdiff_sha256_from_dsc="$(
-    sed -n \
-      -e '/^Checksums-Sha256:$/,/^[^ ]/! b' \
-      -e "s/^ \(.*\) [0-9]\+ firefox_${latest_nonlocal_full_version}\\.debian\\.tar\\.xz\$/\\1/" \
-      -e 'tP' \
-      -e 'b' \
-      -e ':P' \
-      -e 'p' \
-      -e 'q' \
-      "firefox_${latest_nonlocal_full_version}.dsc")"
-  if ! test "x${debdiff_sha256}" = "x${debdiff_sha256_from_dsc}"; then
-    printf 'The sha256 checksum in %s for %s is not correct. Aborting.\n' "firefox_${latest_nonlocal_full_version}.dsc" "firefox_${latest_nonlocal_full_version}.debian.tar.xz" >&2
-    exit 1
-  fi
   tar xJf "firefox_${latest_nonlocal_full_version}.debian.tar.xz"
   cd debian
   ## jack dep

@@ -22,7 +22,10 @@
 
 set -e
 
-. "$(dirname "${0}")/conf.sh"
+_conf="$(readlink -e "${0}")"
+_conf="$(dirname "${_conf}")/conf.sh"
+. "${_conf}"
+unset _conf
 
 do_download=1
 do_patch=1

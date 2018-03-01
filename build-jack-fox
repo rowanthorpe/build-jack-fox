@@ -111,7 +111,7 @@ lang_cap() {
 
 latest_nonlocal_full_version="$(get_latest_full_version firefox $(printf '%s' "${version}" | sed -e 's/-.*$//'))"
 
-srcdir="${srcdir:-/usr/local/src/firefox-custom}"
+srcdir="${srcdir:-/usr/local/src/$(basename "${0}")}"
 version="${version:-$(printf '%s' "${latest_nonlocal_full_version}" | sed -e 's/-.*$//')}"
 version_suffix="${version_suffix:-local1}"
 jack_dev_pkg="${jack_dev_pkg:-libjack-jackd2-dev}"
@@ -220,7 +220,7 @@ firefox (${version}-${version_suffix}) experimental; urgency=low\\
       sed -n \
         -e '/^Checksums-Sha1:$/,/^[^ ]/! b' \
         -e '/^ /! b' \
-        -e "/ firefox_58.0~b4\\.orig\\(\\.tar\\.xz\\|-l10n-\\($(for lang in el en-gb; do printf '%s\|' "$(lang_cap "${lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
+        -e "/ firefox_${version}\\.orig\\(\\.tar\\.bz2\\|-l10n-\\($(for lang in el en-gb; do printf '%s\|' "$(lang_cap "${lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
         -e '$! s/$/\\n/' \
         -e 'p' \
         "firefox_${latest_nonlocal_full_version}.dsc" | tr -d '\n'
@@ -234,7 +234,7 @@ firefox (${version}-${version_suffix}) experimental; urgency=low\\
       sed -n \
         -e '/^Checksums-Sha256:$/,/^[^ ]/! b' \
         -e '/^ /! b' \
-        -e "/ firefox_58.0~b4\\.orig\\(\\.tar\\.xz\\|-l10n-\\($(for lang in el en-gb; do printf '%s\|' "$(lang_cap "${lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
+        -e "/ firefox_${version}\\.orig\\(\\.tar\\.bz2\\|-l10n-\\($(for lang in el en-gb; do printf '%s\|' "$(lang_cap "${lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
         -e '$! s/$/\\n/' \
         -e 'p' \
         "firefox_${latest_nonlocal_full_version}.dsc" | tr -d '\n'
@@ -248,7 +248,7 @@ firefox (${version}-${version_suffix}) experimental; urgency=low\\
       sed -n \
         -e '/^Files:$/,/^[^ ]/! b' \
         -e '/^ /! b' \
-        -e "/ firefox_58.0~b4\\.orig\\(\\.tar\\.xz\\|-l10n-\\($(for lang in el en-gb; do printf '%s\|' "$(lang_cap "${lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
+        -e "/ firefox_${version}\\.orig\\(\\.tar\\.bz2\\|-l10n-\\($(for lang in el en-gb; do printf '%s\|' "$(lang_cap "${lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
         -e '$! s/$/\\n/' \
         -e 'p' \
         "firefox_${latest_nonlocal_full_version}.dsc" | tr -d '\n'

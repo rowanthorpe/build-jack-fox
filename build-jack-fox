@@ -116,9 +116,9 @@ version="${version:-$(printf '%s' "${latest_nonlocal_full_version}" | sed -e 's/
 version_suffix="${version_suffix:-local1}"
 jack_dev_pkg="${jack_dev_pkg:-libjack-jackd2-dev}"
 jack_full_version="${jack_full_version:-$(get_latest_full_version "${jack_dev_pkg}")}"
-name="${name:-Blah}"
-email="${email:-blah@example.com}"
 date="${date:-$(date '+%a, %e %b %Y %H:%M:%S %z')}"
+name="${name:-${DEBFULLNAME:-Blah Blah}}"
+email="${email:-${DEBEMAIL:-blah@example.com}}"
 
 cat <<EOF >&2
 ==========
@@ -127,14 +127,19 @@ version=${version}
 version_suffix=${version_suffix}
 jack_dev_pkg=${jack_dev_pkg}
 jack_full_version=${jack_full_version}
-langs=${langs:-[all available in downloaded package]}
+date=${date}
 name=${name}
 email=${email}
-date=${date}
+langs=${langs:-[all available in downloaded package]}
 ==========
 <Hit enter to continue, ctrl-C (or equivalent) to interrupt>
 EOF
 test 1 -eq ${batch} || read temp
+
+DEBFULLNAME="${name}"
+export DEBFULLNAME
+DEBEMAIL="${email}"
+export DEBEMAIL
 
 cd "${srcdir}"
 
@@ -270,7 +275,6 @@ firefox (${version}-${version_suffix}) experimental; urgency=low\\
 fi
 
 if test 1 -eq ${do_install_build_deps}; then
-  # TODO: how to override the "author" of this with the one configured above? (defaults to running user)
   # TODO: have a "--batch" and non "--batch" version of this (mk-build-deps uses hardcoded -f though...)
   mk-build-deps "firefox_${version}-${version_suffix}.dsc" 'firefox-build-deps' || : # this seems to "error" if this package is not pre-existing(!)
   sudo dpkg -i "firefox-build-deps_${version}-${version_suffix}_"*".deb" || sudo apt-get -f install

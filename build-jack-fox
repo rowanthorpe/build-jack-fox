@@ -33,13 +33,14 @@ do_unpack=1
 do_build=1
 do_tests=0
 do_install=0
+batch=0
 
 while test ${#} -ne 0; do
   case "${1}" in
     --help|-h)
       cat <<EOF
 ${0##*/} [--help|-h]
-${0##*/} [--no-download|--no-patch|--no-install-build-deps|--no-unpack|--no-build|--do-tests|--do-install]
+${0##*/} [--no-download|--no-patch|--no-install-build-deps|--no-unpack|--no-build|--do-tests|--do-install|--batch]
 EOF
       exit 0
       ;;
@@ -69,6 +70,10 @@ EOF
       ;;
     --do-install)
       do_install=1
+      shift
+      ;;
+    --batch)
+      batch=1
       shift
       ;;
     --)
@@ -127,9 +132,9 @@ name=${name}
 email=${email}
 date=${date}
 ==========
-<Hit enter>
+<Hit enter to continue, ctrl-C (or equivalent) to interrupt>
 EOF
-read temp
+test 1 -eq ${batch} || read temp
 
 cd "${srcdir}"
 
@@ -266,6 +271,7 @@ fi
 
 if test 1 -eq ${do_install_build_deps}; then
   # TODO: how to override the "author" of this with the one configured above? (defaults to running user)
+  # TODO: have a "--batch" and non "--batch" version of this (mk-build-deps uses hardcoded -f though...)
   mk-build-deps "firefox_${version}-${version_suffix}.dsc" 'firefox-build-deps' || : # this seems to "error" if this package is not pre-existing(!)
   sudo dpkg -i "firefox-build-deps_${version}-${version_suffix}_"*".deb" || sudo apt-get -f install
 fi

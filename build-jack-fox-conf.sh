@@ -1,9 +1,25 @@
-srcdir=''            # if not set defaults to '/usr/local/src/build-jack-fox'
-version=''           # e.g. '58.0', if not set defaults to the latest version
-version_suffix=''    # if not set defaults to 'local1'
-jack_dev_pkg=''      # if not set defaults to 'libjack-jackd2-dev', specify 'libjack-dev' if using Jack v1
-jack_full_version='' # e.g. '1.9.10+20150825git1ed50c92~dfsg-5', if not set defaults to the latest full-version
-date=''              # the format for 'date' command to use, appropriate for debian changelog, if not set calculated at runtime
-name=''              # if not set defaults to ${DEBFULLNAME} if present, or 'Blah Blah'
-email=''             # if not set defaults to ${DEBEMAIL} if present, or 'blah@example.com'
-langs='el en-gb'     # if not set defaults to all languages (set to just what you want, excluding the always-present en-us, to save compile-time)
+## options -- don't change this line
+
+batch=0
+download=1
+patch=1
+install_build_deps=1
+unpack=1
+build=1
+tests=0
+install=0
+
+## values -- don't change this line
+
+upstream_version=''
+srcdir=''
+local_version_suffix=''
+local_version_suffix_regex=''
+jack_dev_pkg=''
+jack_upstream_version=''
+date=''
+name=''
+email=''
+langs=''
+
+## end -- don't change this line

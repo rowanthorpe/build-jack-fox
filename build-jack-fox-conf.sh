@@ -1,5 +1,6 @@
 ## options -- don't change this line
 
+debug=0
 batch=0
 download=1
 patch=1

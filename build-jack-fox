@@ -26,6 +26,8 @@ set -e
 
 die() { printf "${@}" | sed -e "s/^/${scriptname}: /" >&2; exit 1; }
 
+dprintf() { test 0 -eq ${debug} || { printf \\n; printf "${@}" | sed -e 's/^/---> /'; printf \\n; } >&2; }
+
 get_full_versions() { apt-cache policy "${1}" | sed -n -e 's/^ \(\*\*\*\|   \) \([^ ]\+\) .*$/\2/' -e tP -e b -e :P -e p; }
 
 get_short_versions() { get_full_versions "${@}" | sed -e 's/-.*$//'; }
@@ -171,6 +173,9 @@ date="${date:-$(LC_ALL=C date '+%a, %e %b %Y %H:%M:%S %z')}"
 latest_nonlocal_full_version="$(get_nonlocal_full_versions 'firefox' ${upstream_version} | head -n 1)"
 jack_full_version="$(get_nonlocal_full_versions "${jack_dev_pkg}" ${jack_upstream_version} | head -n 1)"
 
+latest_nonlocal_full_filename_version="$(printf '%s' "${latest_nonlocal_full_version}" | sed -e 's/+.*$//')"
+jack_full_filename_version="$(printf '%s' "${jack_full_version}" | sed -e 's/+.*$//')"
+
 upstream_version="${upstream_version:-$(printf '%s' "${latest_nonlocal_full_version}" | sed -e 's/-.*$//')}"
 jack_upstream_version="${jack_upstream_version:-$(printf '%s' "${jack_full_version}" | sed -e 's/-.*$//')}"
 
@@ -188,6 +193,9 @@ get_short_versions "${jack_dev_pkg}" | grep -q "^$(printf '%s\n' "${jack_upstrea
   cat <<EOF
 ==========
 latest_nonlocal_full_version=${latest_nonlocal_full_version}
+latest_nonlocal_full_filename_version=${latest_nonlocal_full_filename_version}
+jack_full_version=${jack_full_version}
+jack_full_filename_version=${jack_full_filename_version}
 
 EOF
   for _flag_name in ${valflags_names}; do
@@ -213,34 +221,91 @@ export DEBFULLNAME
 DEBEMAIL="${email}"
 export DEBEMAIL
 
+dprintf 'cd "%s"\n' "${srcdir}"
 cd "${srcdir}"
 
 if test 1 -eq ${download}; then
+  dprintf 'apt-get --dsc-only source "firefox=%s"\n' "${latest_nonlocal_full_version}"
   apt-get --dsc-only source "firefox=${latest_nonlocal_full_version}"
+  dprintf 'apt-get --diff-only source "firefox=%s"\n' "${latest_nonlocal_full_version}"
   apt-get --diff-only source "firefox=${latest_nonlocal_full_version}"
+  deb_diff_extension="$(
+    sed -n \
+      -e "s/^.*\\<firefox_${latest_nonlocal_full_filename_version}\\.debian\\.tar\\.\\(bz2\\|xz\\)\\>.*\$/\\1/" "firefox_${latest_nonlocal_full_filename_version}.dsc" \
+      -e 't PRINT' \
+      -e 'b' \
+      -e ': PRINT' \
+      -e 'p' \
+      -e 'q' \
+      "firefox_${latest_nonlocal_full_filename_version}.dsc"
+  )"
+  orig_tar_extension="$(
+    sed -n \
+      -e "s/^.*\\<firefox_${upstream_version}\\.orig\\.tar\\.\\(bz2\\|xz\\)\\>.*\$/\\1/" "firefox_${latest_nonlocal_full_filename_version}.dsc" \
+      -e 't PRINT' \
+      -e 'b' \
+      -e ': PRINT' \
+      -e 'p' \
+      -e 'q' \
+      "firefox_${latest_nonlocal_full_filename_version}.dsc"
+  )"
+  lang_tar_extension="$(
+    sed -n \
+      -e "s/^.*\\<firefox_${upstream_version}\\.orig-l10n-[^.]\\+\\.tar\\.\\(bz2\\|xz\\)\\>.*\$/\\1/" "firefox_${latest_nonlocal_full_filename_version}.dsc" \
+      -e 't PRINT' \
+      -e 'b' \
+      -e ': PRINT' \
+      -e 'p' \
+      -e 'q' \
+      "firefox_${latest_nonlocal_full_filename_version}.dsc"
+  )"
   if test -z "${langs}"; then
+    dprintf 'apt-get --tar-only source "firefox=%s"\n' "${latest_nonlocal_full_version}"
     apt-get --tar-only source "firefox=${latest_nonlocal_full_version}"
   else
-    curl --continue-at - --location --output "firefox_${upstream_version}.orig.tar.bz2" "http://http.debian.net/debian/pool/main/f/firefox/firefox_${upstream_version}.orig.tar.bz2"
+    dprintf 'curl --continue-at - --location --output "firefox_%s.orig.tar.%s" "http://http.debian.net/debian/pool/main/f/firefox/firefox_%s.orig.tar.%s"\n' "${upstream_version}" "${orig_tar_extension}" "${upstream_version}" "${orig_tar_extension}"
+    curl --continue-at - --location --output "firefox_${upstream_version}.orig.tar.${orig_tar_extension}" "http://http.debian.net/debian/pool/main/f/firefox/firefox_${upstream_version}.orig.tar.${orig_tar_extension}"
     for _lang in ${langs}; do
-      curl --continue-at - --location --output "firefox_${upstream_version}.orig-l10n-$(lang_capital "${_lang}").tar.bz2" "http://http.debian.net/debian/pool/main/f/firefox/firefox_${upstream_version}.orig-l10n-$(lang_capital "${_lang}").tar.bz2"
+      dprintf 'curl --continue-at - --location --output "firefox_%s.orig-l10n-%s.tar.%s" "http://http.debian.net/debian/pool/main/f/firefox/firefox_%s.orig-l10n-%s.tar.%s"\n' "${upstream_version}" "$(lang_capital "${_lang}")" "${lang_tar_extension}" "${upstream_version}" "$(lang_capital "${_lang}")" "${lang_tar_extension}"
+      curl --continue-at - --location --output "firefox_${upstream_version}.orig-l10n-$(lang_capital "${_lang}").tar.${lang_tar_extension}" "http://http.debian.net/debian/pool/main/f/firefox/firefox_${upstream_version}.orig-l10n-$(lang_capital "${_lang}").tar.${lang_tar_extension}"
     done
   fi
-  dscverify "firefox_${latest_nonlocal_full_version}.dsc"
+  dprintf 'dscverify "firefox_%s.dsc\n' "${latest_nonlocal_full_filename_version}"
+  dscverify "firefox_${latest_nonlocal_full_filename_version}.dsc"
 fi
 
 if test 1 -eq ${patch}; then
   # NB: Patching xx.in and xx files is annoying duplication, but to rebuild the dependent files "debian/rules" (which is a makefile) requires
   # the upstream source also be unpacked first. Not worth it.
-  tar xJf "firefox_${latest_nonlocal_full_version}.debian.tar.xz"
+  dprintf 'tar xJf "firefox_%s.debian.tar.%s"\n' "${latest_nonlocal_full_filename_version}" "${deb_diff_extension}"
+  tar xJf "firefox_${latest_nonlocal_full_filename_version}.debian.tar.${deb_diff_extension}"
+  dprintf 'cd debian\n'
   cd debian
   ## jack dep
+  dprintf 'sed -i -e "s/^\\(Build-Depends: \\)/\\1%s,\\n               /" control.in\n' "${jack_dev_pkg}"
   sed -i -e "s/^\\(Build-Depends: \\)/\\1${jack_dev_pkg},\\n               /" control.in
+  dprintf 'sed -i -e "s/^\\(Build-Depends: \\)/\\1%s,\\n               /" control\n' "${jack_dev_pkg}"
   sed -i -e "s/^\\(Build-Depends: \\)/\\1${jack_dev_pkg},\\n               /" control
+  dprintf 'sed -i -e "/^ac_add_options --prefix=\\/usr\$/ a \\
+ac_add_options --enable-jack" browser.mozconfig.in\n'
   sed -i -e "/^ac_add_options --prefix=\\/usr\$/ a \\
 ac_add_options --enable-jack" browser.mozconfig.in
   ## langs
+  dprintf 'sed -i -e "/^\\($(printf '\''%s'\'' "%s" | sed -e '\''s/ \+/\\|/g'\'')\\):/!d" l10n/recommends\n' "${langs}"
   sed -i -e "/^\\($(printf '%s' "${langs}" | sed -e 's/ \+/\\|/g')\\):/!d" l10n/recommends
+  dprintf 'sed -i -e "1 i \\
+firefox (%s-%s) experimental; urgency=low\\
+\\
+  Customizations:\\
+\\
+  * Include jack support\\
+\\
+  * Shorten compile-time by:\\
+    -- removing build of unneeded locales\\
+    -- (TODO) removing build of tests\\
+\\
+ -- %s <%s>  %s\\
+" changelog\n' "${upstream_version}" "${local_version_suffix}" "${name}" "${email}" "${date}"
   sed -i -e "1 i \\
 firefox (${upstream_version}-${local_version_suffix}) experimental; urgency=low\\
 \\
@@ -254,99 +319,191 @@ firefox (${upstream_version}-${local_version_suffix}) experimental; urgency=low\
 \\
  -- ${name} <${email}>  ${date}\\
 " changelog
+  dprintf 'cd ..\n'
   cd ..
-  fakeroot tar cJf "firefox_${upstream_version}-${local_version_suffix}.debian.tar.xz" debian
-  rm -fr debian "firefox_${latest_nonlocal_full_version}.debian.tar.xz"
+  dprintf 'fakeroot tar cJf "firefox_%s-%s.debian.tar.%s" debian\n' "${upstream_version}" "${local_version_suffix}" "${deb_diff_extension}"
+  fakeroot tar cJf "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" debian
+  dprintf 'rm -fr debian "firefox_%s.debian.tar.%s"\n' "${latest_nonlocal_full_filename_version}" "${deb_diff_extension}"
+  rm -fr debian "firefox_${latest_nonlocal_full_filename_version}.debian.tar.${deb_diff_extension}"
+  dprintf 'sed \
+    -e "/^Binary:/b LOOP" \
+    -e "/^-----BEGIN PGP SIGNATURE-----\$/,/^-----END PGP SIGNATURE-----\$/d" \
+    -e "s/^\\(Build-Depends:\\)/\\1 %s,/" \
+    -e "/^\\( \\|\$\\|Hash:\\|-----BEGIN PGP SIGNED MESSAGE-----\$\\)/d" \
+    -e "s/^\\(Version:\\) .*\$/\\1 %s-%s/" \
+    -e "s/^\\(Package-List:\\)\$/\\1\\n%s/" \
+    -e "s/^\\(Checksums-Sha1:\\)\$/\\1\\n%s/" \
+    -e "s/^\\(Checksums-Sha256:\\)\$/\\1\\n%s/" \
+    -e "s/^\\(Files:\\)\$/\\1\\n%s/" \
+    -e "b" \
+    -e ":LOOP" \
+    -e "N" \
+    -e "/,\$/!b EXITLOOP" \
+    -e "b LOOP" \
+    -e ":EXITLOOP" \
+    -e "s/\\n//g" \
+    -e "s/^.*\$/Binary: firefox, firefox-l10n-all, %s/" \
+    "firefox_%s.dsc" >"firefox_%s-%s.dsc"\n' \
+  "${jack_dev_pkg}" \
+  "${upstream_version}" \
+  "${local_version_suffix}" \
+  "$(
+    sed -n \
+      -e "/^Package-List:\$/,/^[^ ]/! b" \
+      -e "/^ firefox\\(-l10n-\\($(printf %s\\n "${langs}" | sed -e "s/ \\+/\\\\|/g")\\)\\)\\? deb /! b" \
+      -e "p" \
+      "firefox_${latest_nonlocal_full_filename_version}.dsc" | sed -e "\$! s/\$/\\\\n/" | tr -d "\\n"
+  )" \
+  "$(
+    sed -n \
+      -e "/^Checksums-Sha1:\$/,/^[^ ]/! b" \
+      -e "/^ /! b" \
+      -e "/ firefox_${upstream_version}\\.orig\\(\\.tar\\.${orig_tar_extension}\\|-l10n-\\($(for _lang in ${langs}; do printf "%s\\|" "$(lang_capital "${_lang}")"; done | sed -e "s/\\\\|\$//")\\)\\.tar\\.${lang_tar_extension}\\)/! b" \
+      -e "\$! s/\$/\\\\n/" \
+      -e "p" \
+      "firefox_${latest_nonlocal_full_filename_version}.dsc" | tr -d "\\n"
+    printf " %s %s firefox_%s-%s.debian.tar.%s" "$(
+      sha1sum "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
+    )" "$(
+      wc -c "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
+    )" "${upstream_version}" "${local_version_suffix}" "${deb_deff_extension}"
+  )" \
+  "$(
+    sed -n \
+      -e "/^Checksums-Sha256:\$/,/^[^ ]/! b" \
+      -e "/^ /! b" \
+      -e "/ firefox_${upstream_version}\\.orig\\(\\.tar\\.${orig_tar_extension}\\|-l10n-\\($(for _lang in ${langs}; do printf "%s\\|" "$(lang_capital "${_lang}")"; done | sed -e "s/\\\\|\$//")\\)\\.tar\\.${lang_tar_extension}\\)/! b" \
+      -e "\$! s/\$/\\\\n/" \
+      -e "p" \
+      "firefox_${latest_nonlocal_full_filename_version}.dsc" | tr -d "\\n"
+    printf " %s %s firefox_%s-%s.debian.tar.%s" "$(
+      sha256sum "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
+    )" "$(
+      wc -c "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
+    )" "${upstream_version}" "${local_version_suffix}" "${deb_diff_extension}"
+  )" \
+  "$(
+    sed -n \
+      -e "/^Files:\$/,/^[^ ]/! b" \
+      -e "/^ /! b" \
+      -e "/ firefox_${upstream_version}\\.orig\\(\\.tar\\.${orig_tar_extension}\\|-l10n-\\($(for _lang in ${langs}; do printf "%s\\|" "$(lang_capital "${_lang}")"; done | sed -e "s/\\\\|\$//")\\)\\.tar\\.${lang_tar_extension}\\)/! b" \
+      -e "\$! s/\$/\\\\n/" \
+      -e "p" \
+      "firefox_${latest_nonlocal_full_filename_version}.dsc" | tr -d "\\n"
+    printf " %s %s firefox_%s-%s.debian.tar.%s" "$(
+      md5sum "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
+    )" "$(
+      wc -c "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
+    )" "${upstream_version}" "${local_version_suffix}" "${deb_diff_extension}"
+  )" \
+  "$(for _lang in ${langs}; do printf "firefox-l10n-%s, " "${_lang}"; done | sed -e "s/, \$//")" \
+  "${latest_nonlocal_full_filename_version}" \
+  "${upstream_version}" \
+  "${local_version_suffix}"
   sed \
-    -e '/^Binary:/b LOOP' \
-    -e '/^-----BEGIN PGP SIGNATURE-----$/,/^-----END PGP SIGNATURE-----$/d' \
+    -e "/^Binary:/b LOOP" \
+    -e "/^-----BEGIN PGP SIGNATURE-----\$/,/^-----END PGP SIGNATURE-----\$/d" \
     -e "s/^\\(Build-Depends:\\)/\\1 ${jack_dev_pkg},/" \
-    -e '/^\( \|$\|Hash:\|-----BEGIN PGP SIGNED MESSAGE-----$\)/d' \
+    -e "/^\\( \\|\$\\|Hash:\\|-----BEGIN PGP SIGNED MESSAGE-----\$\\)/d" \
     -e "s/^\\(Version:\\) .*\$/\\1 ${upstream_version}-${local_version_suffix}/" \
     -e "s/^\\(Package-List:\\)\$/\\1\\n$(
       sed -n \
-        -e '/^Package-List:$/,/^[^ ]/! b' \
-        -e "/^ firefox\\(-l10n-\\($(printf %s\\n "${langs}" | sed -e 's/ \+/\\|/g')\\)\\)\\? deb /! b" \
-        -e 'p' \
-        "firefox_${latest_nonlocal_full_version}.dsc" | sed -e '$! s/$/\\n/' | tr -d '\n'
+        -e "/^Package-List:\$/,/^[^ ]/! b" \
+        -e "/^ firefox\\(-l10n-\\($(printf %s\\n "${langs}" | sed -e "s/ \\+/\\\\|/g")\\)\\)\\? deb /! b" \
+        -e "p" \
+        "firefox_${latest_nonlocal_full_filename_version}.dsc" | sed -e "\$! s/\$/\\\\n/" | tr -d "\\n"
     )/" \
     -e "s/^\\(Checksums-Sha1:\\)\$/\\1\\n$(
       sed -n \
-        -e '/^Checksums-Sha1:$/,/^[^ ]/! b' \
-        -e '/^ /! b' \
-        -e "/ firefox_${upstream_version}\\.orig\\(\\.tar\\.bz2\\|-l10n-\\($(for _lang in ${langs}; do printf '%s\|' "$(lang_capital "${_lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
-        -e '$! s/$/\\n/' \
-        -e 'p' \
-        "firefox_${latest_nonlocal_full_version}.dsc" | tr -d '\n'
-      printf ' %s %s firefox_%s-%s.debian.tar.xz' "$(
-        sha1sum "firefox_${upstream_version}-${local_version_suffix}.debian.tar.xz" | cut -d' ' -f1
+        -e "/^Checksums-Sha1:\$/,/^[^ ]/! b" \
+        -e "/^ /! b" \
+        -e "/ firefox_${upstream_version}\\.orig\\(\\.tar\\.${orig_tar_extension}\\|-l10n-\\($(for _lang in ${langs}; do printf "%s\\|" "$(lang_capital "${_lang}")"; done | sed -e "s/\\\\|\$//")\\)\\.tar\\.${lang_tar_extension}\\)/! b" \
+        -e "\$! s/\$/\\\\n/" \
+        -e "p" \
+        "firefox_${latest_nonlocal_full_filename_version}.dsc" | tr -d "\\n"
+      printf " %s %s firefox_%s-%s.debian.tar.%s" "$(
+        sha1sum "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
       )" "$(
-        wc -c "firefox_${upstream_version}-${local_version_suffix}.debian.tar.xz" | cut -d' ' -f1
-      )" "${upstream_version}" "${local_version_suffix}"
+        wc -c "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
+      )" "${upstream_version}" "${local_version_suffix}" "${deb_diff_extension}"
     )/" \
     -e "s/^\\(Checksums-Sha256:\\)\$/\\1\\n$(
       sed -n \
-        -e '/^Checksums-Sha256:$/,/^[^ ]/! b' \
-        -e '/^ /! b' \
-        -e "/ firefox_${upstream_version}\\.orig\\(\\.tar\\.bz2\\|-l10n-\\($(for _lang in ${langs}; do printf '%s\|' "$(lang_capital "${_lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
-        -e '$! s/$/\\n/' \
-        -e 'p' \
-        "firefox_${latest_nonlocal_full_version}.dsc" | tr -d '\n'
-      printf ' %s %s firefox_%s-%s.debian.tar.xz' "$(
-        sha256sum "firefox_${upstream_version}-${local_version_suffix}.debian.tar.xz" | cut -d' ' -f1
+        -e "/^Checksums-Sha256:\$/,/^[^ ]/! b" \
+        -e "/^ /! b" \
+        -e "/ firefox_${upstream_version}\\.orig\\(\\.tar\\.${orig_tar_extension}\\|-l10n-\\($(for _lang in ${langs}; do printf "%s\\|" "$(lang_capital "${_lang}")"; done | sed -e "s/\\\\|\$//")\\)\\.tar\\.${lang_tar_extension}\\)/! b" \
+        -e "\$! s/\$/\\\\n/" \
+        -e "p" \
+        "firefox_${latest_nonlocal_full_filename_version}.dsc" | tr -d "\\n"
+      printf " %s %s firefox_%s-%s.debian.tar.%s" "$(
+        sha256sum "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
       )" "$(
-        wc -c "firefox_${upstream_version}-${local_version_suffix}.debian.tar.xz" | cut -d' ' -f1
-      )" "${upstream_version}" "${local_version_suffix}"
+        wc -c "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
+      )" "${upstream_version}" "${local_version_suffix}" "${deb_diff_extension}"
     )/" \
     -e "s/^\\(Files:\\)\$/\\1\\n$(
       sed -n \
-        -e '/^Files:$/,/^[^ ]/! b' \
-        -e '/^ /! b' \
-        -e "/ firefox_${upstream_version}\\.orig\\(\\.tar\\.bz2\\|-l10n-\\($(for _lang in ${langs}; do printf '%s\|' "$(lang_capital "${_lang}")"; done | sed -e 's/\\|$//')\\)\\.tar\\.bz2\\)/! b" \
-        -e '$! s/$/\\n/' \
-        -e 'p' \
-        "firefox_${latest_nonlocal_full_version}.dsc" | tr -d '\n'
-      printf ' %s %s firefox_%s-%s.debian.tar.xz' "$(
-        md5sum "firefox_${upstream_version}-${local_version_suffix}.debian.tar.xz" | cut -d' ' -f1
+        -e "/^Files:\$/,/^[^ ]/! b" \
+        -e "/^ /! b" \
+        -e "/ firefox_${upstream_version}\\.orig\\(\\.tar\\.${orig_tar_extension}\\|-l10n-\\($(for _lang in ${langs}; do printf "%s\\|" "$(lang_capital "${_lang}")"; done | sed -e "s/\\\\|\$//")\\)\\.tar\\.${lang_tar_extension}\\)/! b" \
+        -e "\$! s/\$/\\\\n/" \
+        -e "p" \
+        "firefox_${latest_nonlocal_full_filename_version}.dsc" | tr -d "\\n"
+      printf " %s %s firefox_%s-%s.debian.tar.%s" "$(
+        md5sum "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
       )" "$(
-        wc -c "firefox_${upstream_version}-${local_version_suffix}.debian.tar.xz" | cut -d' ' -f1
-      )" "${upstream_version}" "${local_version_suffix}"
+        wc -c "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" | cut -d" " -f1
+      )" "${upstream_version}" "${local_version_suffix}" "${deb_diff_extension}"
     )/" \
-    -e 'b' \
-    -e ':LOOP' \
-    -e 'N' \
-    -e '/,$/!b EXITLOOP' \
-    -e 'b LOOP' \
-    -e ':EXITLOOP' \
-    -e 's/\n//g' \
+    -e "b" \
+    -e ":LOOP" \
+    -e "N" \
+    -e "/,\$/!b EXITLOOP" \
+    -e "b LOOP" \
+    -e ":EXITLOOP" \
+    -e "s/\\n//g" \
     -e "s/^.*\$/Binary: firefox, firefox-l10n-all, $(
       for _lang in ${langs}; do
-        printf 'firefox-l10n-%s, ' "${_lang}"
-      done | sed -e 's/, $//'
+        printf "firefox-l10n-%s, " "${_lang}"
+      done | sed -e "s/, \$//"
     )/" \
-    "firefox_${latest_nonlocal_full_version}.dsc" >"firefox_${upstream_version}-${local_version_suffix}.dsc"
-  rm -f "firefox_${latest_nonlocal_full_version}.dsc"
+    "firefox_${latest_nonlocal_full_filename_version}.dsc" >"firefox_${upstream_version}-${local_version_suffix}.dsc"
+  dprintf 'rm -f "firefox_%s.dsc"\n' "${latest_nonlocal_full_filename_version}"
+  rm -f "firefox_${latest_nonlocal_full_filename_version}.dsc"
 fi
 
 if test 1 -eq ${install_build_deps}; then
+  dprintf 'mk-build-deps "firefox_%s-%s.dsc" '\''firefox-build-deps'\'' || :\n' "${upstream_version}" "${local_version_suffix}"
   mk-build-deps "firefox_${upstream_version}-${local_version_suffix}.dsc" 'firefox-build-deps' || : # this seems to "error" if this package is not pre-existing(!)
+  dprintf 'sudo dpkg -i "firefox-build-deps_%s-%s_"*".deb" || sudo apt-get -f install\n' "${upstream_version}" "${local_version_suffix}"
   sudo dpkg -i "firefox-build-deps_${upstream_version}-${local_version_suffix}_"*".deb" || sudo apt-get -f install
 fi
 
 if test 1 -eq ${unpack}; then
+  dprintf '! test -e "firefox-%s" || mv -fv "firefox-%s" "firefox-%s-bak%s"\n' "${upstream_version}" "${upstream_version}" "${upstream_version}" "${$}"
   ! test -e "firefox-${upstream_version}" || mv -fv "firefox-${upstream_version}" "firefox-${upstream_version}-bak${$}"
+  dprintf 'dpkg-source -x "firefox_%s-%s.dsc"\n' "${upstream_version}" "${local_version_suffix}"
   dpkg-source -x "firefox_${upstream_version}-${local_version_suffix}.dsc"
 fi
 
 if test 1 -eq ${build}; then
   printf '*** About to build the package. Once this is running OK for a few seconds, expect it to run unattended for an hour or two.\n' >&2
+  dprintf 'sleep 2\n'
   sleep 2
+  dprintf 'cd "firefox-%s"\n' "${upstream_version}"
   cd "firefox-${upstream_version}"
+  dprintf 'dpkg-buildpackage -rfakeroot -b --no-sign\n'
   dpkg-buildpackage -rfakeroot -b --no-sign
+  dprintf 'cd ..\n'
   cd ..
 fi
 
 if test 1 -eq ${install}; then
+  dprintf 'sudo dpkg -i "firefox_%s-%s_amd64.deb" %s\n' "${upstream_version}" "${local_version_suffix}" "$(
+    for _lang in ${langs}; do
+      printf 'firefox-l10n-%s_%s-%s_all.deb ' "${_lang}" "${upstream_version}" "${local_version_suffix}"
+    done
+  )"
   sudo dpkg -i "firefox_${upstream_version}-${local_version_suffix}_amd64.deb" $(
     for _lang in ${langs}; do
       printf 'firefox-l10n-%s_%s-%s_all.deb ' "${_lang}" "${upstream_version}" "${local_version_suffix}"

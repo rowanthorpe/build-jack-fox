@@ -21,9 +21,9 @@ Issues
 ------
 
 * I was [pointed to an issue where version 59 audio fails](https://twitter.com/malkavianbilbao/status/974698569331625984) due to the sandbox
-  blocking `bind()`. Apparently for v59 the only workaround is to set `security.sandbox.content.level=0` in `about:config` (which is really not a good
-  idea), but luckily due to an architectural change the issue won't affect v60 onwards. Personally, I decided to just wait and jump from version 58 to
-  60 when it comes out.
+  blocking `bind()`. Apparently for v59 the only workaround is to set `security.sandbox.content.level=0` in `about:config` (which is not a good
+  idea unless you really understand the consequences), but luckily due to an architectural change the issue won't affect v60 onwards. Personally,
+  I decided to just wait and jump from version 58 to 60 when it comes out.
 
 Authors
 -------

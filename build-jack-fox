@@ -50,7 +50,7 @@ lang_capital() {
 
 get_user_full_name() { { getent passwd $(id -run) 2>/dev/null || : ; } | cut -d: -f5 | cut -d, -f1; }
 
-get_user_email() { { getent aliases $(id -run) 2>/dev/null || : ; } | sed -e 's/^[^ \t]\+:[ \t]\+//' | grep '@'; }
+get_user_email() { { getent aliases $(id -run) 2>/dev/null || : ; } | sed -e 's/^[^ \t]\+:[ \t]\+//' | grep '@' || : ; }
 
 # globals & defaults
 

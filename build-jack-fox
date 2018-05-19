@@ -1,6 +1,8 @@
 #!/bin/sh
 
-# build-jack-fox (version 0.2.0):
+VERSION=0.2.0
+
+# build-jack-fox:
 #
 #  A tool for automating a custom build of Firefox with libjack (primarily
 #  for people wanting to avoid installing PulseAudio
@@ -275,12 +277,12 @@ if test 1 -eq ${download}; then
 fi
 
 if test 1 -eq ${patch}; then
-  # NB: Patching xx.in and xx files is annoying duplication, but to rebuild the dependent files "debian/rules" (which is a makefile) requires
-  # the upstream source also be unpacked first. Not worth it.
   dprintf 'tar xJf "firefox_%s.debian.tar.%s"\n' "${latest_nonlocal_full_filename_version}" "${deb_diff_extension}"
   tar xJf "firefox_${latest_nonlocal_full_filename_version}.debian.tar.${deb_diff_extension}"
   dprintf 'cd debian\n'
   cd debian
+  # NB: Patching control.in and control files is annoying duplication, but to rebuild the dependent files "debian/rules" (which is a makefile)
+  # requires the upstream source also be unpacked first. Not worth it.
   ## jack dep
   dprintf 'sed -i -e "s/^\\(Build-Depends: \\)/\\1%s,\\n               /" control.in\n' "${jack_dev_pkg}"
   sed -i -e "s/^\\(Build-Depends: \\)/\\1${jack_dev_pkg},\\n               /" control.in
@@ -293,6 +295,7 @@ ac_add_options --enable-jack" browser.mozconfig.in
   ## langs
   dprintf 'sed -i -e "/^\\($(printf '\''%s'\'' "%s" | sed -e '\''s/ \+/\\|/g'\'')\\):/!d" l10n/recommends\n' "${langs}"
   sed -i -e "/^\\($(printf '%s' "${langs}" | sed -e 's/ \+/\\|/g')\\):/!d" l10n/recommends
+  ## changelog
   dprintf 'sed -i -e "1 i \\
 firefox (%s-%s) experimental; urgency=low\\
 \\
@@ -321,6 +324,7 @@ firefox (${upstream_version}-${local_version_suffix}) experimental; urgency=low\
 " changelog
   dprintf 'cd ..\n'
   cd ..
+  ## rebuild debian files
   dprintf 'fakeroot tar cJf "firefox_%s-%s.debian.tar.%s" debian\n' "${upstream_version}" "${local_version_suffix}" "${deb_diff_extension}"
   fakeroot tar cJf "firefox_${upstream_version}-${local_version_suffix}.debian.tar.${deb_diff_extension}" debian
   dprintf 'rm -fr debian "firefox_%s.debian.tar.%s"\n' "${latest_nonlocal_full_filename_version}" "${deb_diff_extension}"

@@ -54,6 +54,54 @@ get_user_full_name() { { getent passwd $(id -run) 2>/dev/null || : ; } | cut -d:
 
 get_user_email() { { getent aliases $(id -run) 2>/dev/null || : ; } | sed -e 's/^[^ \t]\+:[ \t]\+//' | grep '@' || : ; }
 
+usage() {
+  cat <<EOF
+\`build-jack-fox' is an automation script for downloading, customizing and
+building (on Debian or a derivative distro) a version of the latest Firefox
+browser with Jack audio (so you don't need to install PulseAudio, for example).
+
+Usage:
+${scriptname} [--help, -h]
+${scriptname} [--version, -V]
+${scriptname} [--list-versions, --list-jack-versions]
+${scriptname} [
+EOF
+  {
+    for _flag_name in ${valflags_names}; do
+      printf '%s  --%-30s (default: %s),\n' "${scriptnspc}" "$(printf '%s\n' "${_flag_name}" | sed -e 's/_/-/g') \"X\"" "$(
+        eval "
+          if test -n \"\${${_flag_name}_def}\"; then
+            printf '%s' \"\${${_flag_name}_def}\"
+          else
+            printf '[runtime-calculated]'
+          fi
+        "
+      )"
+    done
+    for _flag_name in ${optflags_names}; do
+      _flag_suffix="$(printf '%s\n' "${_flag_name}" | sed -e 's/_/-/g')"
+      printf '%s  --disable-%-22s --enable-%s,\n' "${scriptnspc}" "${_flag_suffix}," "${_flag_suffix}"
+    done
+  } | sed -e '$ s/,$//'
+  cat <<EOF
+${scriptnspc} ]
+
+Report bugs to <rowan@rowanthorpe.com>.
+EOF
+}
+
+version() {
+  cat <<EOF
+build-jack-fox ${VERSION}
+
+Copyright (C) 2017, 2018 Rowan Thorpe.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+Written by Rowan Thorpe <rowan@rowanthorpe.com>
+EOF
+}
+
 # globals & defaults
 
 scriptname="$(basename "${0}")"
@@ -92,31 +140,11 @@ unset _conf
 while test ${#} -ne 0; do
   case "${1}" in
     --help|-h)
-      cat <<EOF
-${scriptname} [--help, -h]
-${scriptname} [--list-versions, --list-jack-versions]
-${scriptname} [
-EOF
-      {
-        for _flag_name in ${valflags_names}; do
-          printf '%s  --%-30s %s\n' "${scriptnspc}" "$(printf '%s\n' "${_flag_name}" | sed -e 's/_/-/g') \"X\"" "(default: $(
-            eval "
-              if test -n \"\${${_flag_name}_def}\"; then
-                printf '%s' \"\${${_flag_name}_def}\"
-              else
-                printf '[runtime-calculated]'
-              fi
-            "
-          )),"
-        done
-        for _flag_name in ${optflags_names}; do
-          _flag_suffix="$(printf '%s\n' "${_flag_name}" | sed -e 's/_/-/g')"
-          printf '%s  --disable-%-22s --enable-%s,\n' "${scriptnspc}" "${_flag_suffix}," "${_flag_suffix}"
-        done
-      } | sed -e '$ s/,$//'
-      cat <<EOF
-${scriptnspc} ]
-EOF
+      usage
+      exit 0
+      ;;
+    --version|-V)
+      version
       exit 0
       ;;
     --list-versions)

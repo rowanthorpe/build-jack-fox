@@ -18,13 +18,13 @@ Installation (optional)
 
 * If you want any flags hardcoded so you don't need to specify them every time, do:
   ```sh
-  cp [repo-dir]/build-jack-fox-conf.sh.template [repo-dir]/build-jack-fox-conf.sh
+  cd [repo-dir]
+  cp build-jack-fox-conf.sh.template build-jack-fox-conf.sh
   ```
   and uncomment/edit them, for example:
   ```text
   --enable-install --> install=1
   ```
-  or
   ```text
   --jack-dev-pkg "libjack-dev" --> jack_dev_pkg=libjack-dev
   ```
@@ -55,7 +55,7 @@ Issues
 * I was [pointed to an issue where version 59 audio fails](https://twitter.com/malkavianbilbao/status/974698569331625984)
   due to the sandbox blocking `bind()`. Apparently for v59 the only workaround is to set `security.sandbox.content.level=0`
   in `about:config` (which is not a good idea unless you really understand the consequences), but luckily due to an
-  architectural change the issue won't affect v60 onwards
+  architectural change the issue doesn't affect v60 onwards
   ([confirmed OK](https://twitter.com/malkavianbilbao/status/997162915240316933) now that v60 is out in Debian Unstable).
   Personally, I just waited and jumped from version 58 to 60.
 

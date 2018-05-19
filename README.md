@@ -58,5 +58,6 @@ GPLv3+ - see COPYING for details.
 TODO
 ----
 
+* "uninstall build-deps-package" step at end (opt-in)
 * documentation
 * use `die()` in more places instead of just letting `set -e` handle errors silently.

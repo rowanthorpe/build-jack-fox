@@ -26,7 +26,9 @@ set -e
 
 # define functions
 
-die() { printf "${@}" | sed -e "s/^/${scriptname}: /" >&2; exit 1; }
+warn() { printf "${@}" | sed -e "s/^/${scriptname}: /" >&2; }
+
+die() { warn "${@}"; exit 1; }
 
 dprintf() { test 0 -eq ${debug} || { printf \\n; printf "${@}" | sed -e 's/^/---> /'; printf \\n; } >&2; }
 

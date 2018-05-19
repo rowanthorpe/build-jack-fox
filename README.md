@@ -8,7 +8,7 @@ As it seems Mozilla and Debian won't likely compile Jack in by default anytime s
 compile-times, hardware longevity, and sanity you can also configure to tweak the following:
 
 * set the list of locales to build so you don't need to build *all* of them
-* prevent building and running tests (TODO)
+* prevent building and running tests
 
 For background and motivation for this script, see
 [my blogpost](http://blog.rowanthorpe.com/2017/12/17/firefox-without-pulseaudio-in-debian.html).
@@ -58,4 +58,3 @@ TODO
 
 * documentation
 * use `die()` in more places instead of just letting `set -e` handle errors silently.
-* remove compiling/running of tests for faster build

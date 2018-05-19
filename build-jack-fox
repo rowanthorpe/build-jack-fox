@@ -306,7 +306,10 @@ if test 1 -eq ${download}; then
   dscverify "firefox_${latest_nonlocal_full_filename_version}.dsc"
 fi
 
-if test 1 -eq ${patch}; then
+if test 0 -eq ${patch}; then
+  test 1 -eq ${tests} || \
+    warn 'tests have been disabled but patching is being skipped so the tests will only be disabled if previously patched as such.\n'
+else
   dprintf 'tar xJf "firefox_%s.debian.tar.%s"\n' "${latest_nonlocal_full_filename_version}" "${deb_diff_extension}"
   tar xJf "firefox_${latest_nonlocal_full_filename_version}.debian.tar.${deb_diff_extension}"
   dprintf 'cd debian\n'
@@ -322,6 +325,13 @@ if test 1 -eq ${patch}; then
 ac_add_options --enable-jack" browser.mozconfig.in\n'
   sed -i -e "/^ac_add_options --prefix=\\/usr\$/ a \\
 ac_add_options --enable-jack" browser.mozconfig.in
+  ## tests
+  if test 0 -eq ${tests}; then
+    dprintf 'sed -i -e "/^ac_add_options --prefix=\\/usr\$/ a \\
+ac_add_options --disable-tests" browser.mozconfig.in\n'
+    sed -i -e "/^ac_add_options --prefix=\\/usr\$/ a \\
+ac_add_options --disable-tests" browser.mozconfig.in
+  fi
   ## langs
   dprintf 'sed -i -e "/^\\($(printf '\''%s'\'' "%s" | sed -e '\''s/ \+/\\|/g'\'')\\):/!d" l10n/recommends\n' "${langs}"
   sed -i -e "/^\\($(printf '%s' "${langs}" | sed -e 's/ \+/\\|/g')\\):/!d" l10n/recommends
@@ -335,7 +345,7 @@ firefox (%s-%s) experimental; urgency=low\\
 \\
   * Shorten compile-time by:\\
     -- removing build of unneeded locales\\
-    -- (TODO) removing build of tests\\
+    -- removing build of tests\\
 \\
  -- %s <%s>  %s\\
 " changelog\n' "${upstream_version}" "${local_version_suffix}" "${name}" "${email}" "${date}"
@@ -348,7 +358,7 @@ firefox (${upstream_version}-${local_version_suffix}) experimental; urgency=low\
 \\
   * Shorten compile-time by:\\
     -- removing build of unneeded locales\\
-    -- (TODO) removing build of tests\\
+    -- removing build of tests\\
 \\
  -- ${name} <${email}>  ${date}\\
 " changelog

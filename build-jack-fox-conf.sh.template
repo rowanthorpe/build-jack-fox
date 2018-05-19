@@ -1,27 +1,27 @@
-## options -- don't change this line
+## optflags -- don't change this line
 
-debug=0
-batch=0
-download=1
-patch=1
-install_build_deps=1
-unpack=1
-build=1
-pre_build_clean=1
-tests=0
-install=0
+#debug=0
+#batch=0
+#download=1
+#patch=1
+#install_build_deps=1
+#unpack=1
+#build=1
+#pre_build_clean=1
+#tests=0
+#install=0
 
-## values -- don't change this line
+## valflags -- don't change this line
 
-upstream_version=''
-srcdir=''
-local_version_suffix=''
-local_version_suffix_regex=''
-jack_dev_pkg=''
-jack_upstream_version=''
-date=''
-name=''
-email=''
-langs=''
+#upstream_version=''
+#srcdir="/usr/local/src/${scriptname}"
+#local_version_suffix='local1'
+#local_version_suffix_regex='local[0-9]\+'
+#jack_dev_pkg='libjack-jackd2-dev'
+#jack_upstream_version=''
+#date=''
+#name='Blah Blah'
+#email='blah@example.com'
+#langs=''
 
 ## end -- don't change this line

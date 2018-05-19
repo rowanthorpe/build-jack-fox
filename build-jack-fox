@@ -82,7 +82,14 @@ EOF
     done
     for _flag_name in ${optflags_names}; do
       _flag_suffix="$(printf '%s\n' "${_flag_name}" | sed -e 's/_/-/g')"
-      printf '%s  --disable-%-22s --enable-%s,\n' "${scriptnspc}" "${_flag_suffix}," "${_flag_suffix}"
+      printf '%s  --disable-%-22s --enable-%-22s (default: %s),\n' "${scriptnspc}" "${_flag_suffix}" "${_flag_suffix}" "$(
+        eval "_x=\${${_flag_name}_def}"
+        if test 0 -eq ${_x}; then
+          printf 'disabled'
+        else
+          printf 'enabled'
+        fi
+      )"
     done
   } | sed -e '$ s/,$//'
   cat <<EOF
@@ -110,31 +117,51 @@ scriptname="$(basename "${0}")"
 scriptnspc="$(printf '%s\n' "${scriptname}" | sed -e 's/./ /g')"
 jack_dev_pkg_candidates='libjack-jackd2-dev libjack-dev'
 
+debug_def=0
+batch_def=0
+download_def=1
+patch_def=1
+install_build_deps_def=1
+unpack_def=1
+build_def=1
+pre_build_clean_def=1
+tests_def=0
+install_def=0
+
+upstream_version_def=''
 srcdir_def="/usr/local/src/${scriptname}"
 local_version_suffix_def='local1'
 local_version_suffix_regex_def='local[0-9]\+'
 jack_dev_pkg_def='libjack-jackd2-dev'
+jack_upstream_version_def=''
+date_def=''
 name_def="${DEBFULLNAME:-$(get_user_full_name)}"; name_def="${name_def:-Blah Blah}"
 email_def="${DEBEMAIL:-$(get_user_email)}"; email_def="${email_def:-blah@example.com}"
+langs_def=''
 
 # source configfile
 
 _conf="$(readlink -e "${0}")-conf.sh"
-. "${_conf}"
-valflags_names="$(
-  sed \
-    -e '/^## values /,/^## /! d' \
-    -e '/^ *\($\|#\)/ d' \
-    -e 's/=.*$//' \
-    "${_conf}" | tr '\n' ' ' | sed -e '$ s/ $//'
-)"
-optflags_names="$(
-  sed \
-    -e '/^## options /,/^## /! d' \
-    -e '/^ *\($\|#\)/ d' \
-    -e 's/=.*$//' \
-    "${_conf}" | tr '\n' ' ' | sed -e '$ s/ $//'
-)"
+if test -s "${_conf}"; then
+  . "${_conf}"
+else
+  _conf="${_conf}.template"
+fi
+for _x in optflags valflags; do
+  eval '
+    '${_x}'_names="$(
+      sed -n \
+        -e "/^## '${_x}' /,/^## /! b" \
+        -e "s/^#\\?\\([a-z][a-z_]*\\)=.*\$/\\1/" \
+        -e "tP" \
+        -e "b" \
+        -e ":P" \
+        -e "p" \
+        "${_conf}" | sort -u | tr \\n " " | sed -e "\$ s/ \$//"
+    )"
+  '
+done
+unset _x
 unset _conf
 
 # getopts

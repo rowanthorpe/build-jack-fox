@@ -526,8 +526,14 @@ if test 1 -eq ${build}; then
   sleep 2
   dprintf 'cd "firefox-%s"\n' "${upstream_version}"
   cd "firefox-${upstream_version}"
-  dprintf 'dpkg-buildpackage -rfakeroot -b --no-sign\n'
-  dpkg-buildpackage -rfakeroot -b --no-sign
+  if test 0 -eq ${pre_build_clean}; then
+    _cmd_suffix='--no-pre-clean'
+  else
+    _cmd_suffix=''
+  fi
+  dprintf 'dpkg-buildpackage -rfakeroot -b --no-sign %s\n' "${_cmd_suffix}"
+  dpkg-buildpackage -rfakeroot -b --no-sign ${_cmd_suffix}
+  unset _cmd_suffix
   dprintf 'cd ..\n'
   cd ..
 fi

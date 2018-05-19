@@ -7,6 +7,7 @@ patch=1
 install_build_deps=1
 unpack=1
 build=1
+pre_build_clean=1
 tests=0
 install=0
 

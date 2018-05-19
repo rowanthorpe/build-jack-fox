@@ -16,10 +16,22 @@ For background and motivation for this script, see
 Installation (optional)
 -----------------------
 
-* If you want any flags hardcoded so you don't need to specify them every time, do
-  `cp [repo-dir]/build-jack-fox-conf.sh.template [repo-dir]/build-jack-fox-conf.sh` and uncomment/edit them (e.g.
-  `--enable-install` -> `install=1`, or `--jack-dev-pkg "libjack-dev"` -> `jack_dev_pkg=libjack-dev`).
-* If you want to make the script available in your $PATH, do e.g. `ln -s [repo-dir]/build-jack-fox /usr/local/bin/`
+* If you want any flags hardcoded so you don't need to specify them every time, do:
+  ```sh
+  cp [repo-dir]/build-jack-fox-conf.sh.template [repo-dir]/build-jack-fox-conf.sh
+  ```
+  and uncomment/edit them, for example:
+  ```text
+  --enable-install --> install=1
+  ```
+  or
+  ```text
+  --jack-dev-pkg "libjack-dev" --> jack_dev_pkg=libjack-dev
+  ```
+* If you want to make the script available in your $PATH, do e.g.:
+  ```sh
+  ln -s [repo-dir]/build-jack-fox /usr/local/bin/
+  ```
 * NB: You will need at least about 15GB free on the partition housing the $srcdir (for the built files, and the copies
   made while packaging).
 

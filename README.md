@@ -11,7 +11,7 @@ compile-times, hardware longevity, and sanity you can also configure to tweak th
 * prevent building and running tests
 
 For background and motivation for this script, see
-[my blogpost](http://blog.rowanthorpe.com/2017/12/17/firefox-without-pulseaudio-in-debian.html).
+[my blogpost](https://blog.rowanthorpe.com/2017/12/17/firefox-without-pulseaudio-in-debian.html).
 
 Installation (optional)
 -----------------------

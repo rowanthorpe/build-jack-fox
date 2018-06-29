@@ -74,6 +74,8 @@ EOF
         eval "
           if test -n \"\${${_flag_name}_def}\"; then
             printf '%s' \"\${${_flag_name}_def}\"
+          elif test -n \"\${${_flag_name}}\"; then
+            printf '%s' \"\${${_flag_name}}\"
           else
             printf '[runtime-calculated]'
           fi

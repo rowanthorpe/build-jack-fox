@@ -75,3 +75,5 @@ TODO
 * "uninstall build-deps-package" step at end (opt-in)
 * documentation
 * use `die()` in more places instead of just letting `set -e` handle errors silently.
+* add optional/configurable step to the install-phase, to mark the installed packages
+  as "held" so they won't get auto-replaced by upstream newer versions

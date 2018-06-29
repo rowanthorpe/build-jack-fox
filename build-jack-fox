@@ -217,7 +217,7 @@ while test ${#} -ne 0; do
     esac
   '
 done
-for _flag_name in ${valflags_names}; do
+for _flag_name in ${optflags_names} ${valflags_names}; do
   eval "${_flag_name}=\"\${${_flag_name}:-\${${_flag_name}_def}}\""
 done
 

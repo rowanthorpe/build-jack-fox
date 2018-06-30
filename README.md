@@ -32,7 +32,7 @@ Installation (optional)
   ```sh
   ln -s [repo-dir]/build-jack-fox /usr/local/bin/
   ```
-* NB: You will need at least about 15GB free on the partition housing the $srcdir (for the built files, and the copies
+* NB: You will need at least about 16GB free on the partition housing the $srcdir (for the built files, and the copies
   made while packaging).
 
 Invocation

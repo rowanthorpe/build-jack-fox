@@ -77,3 +77,5 @@ TODO
 * use `die()` in more places instead of just letting `set -e` handle errors silently.
 * add optional/configurable step to the install-phase, to mark the installed packages
   as "held" so they won't get auto-replaced by upstream newer versions
+* add optional/configurable step to the starting phase, to check if there appears to
+  be enough space on the partition of srcdir

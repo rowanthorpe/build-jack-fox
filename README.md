@@ -52,6 +52,14 @@ optflags and varflags.
 Issues
 ------
 
+* If, like most rust developers, you have used rustup to install rust tools and followed the advice to prepend that to
+  your $PATH (e.g. `PATH="~/.cargo/bin:$PATH"`) in your shell rc-file then you may strike problems with the firefox
+  build using those tools instead of the versions installed to the system paths by the `firefox-build-deps` package,
+  and hitting inconsistencies. The easy solution is to run build-jack-fox as follows:
+  ```sh
+  PATH={$PATH minus the rustup install-path} build-jack-fox
+  ```
+
 * I was [pointed to an issue where version 59 audio fails](https://twitter.com/malkavianbilbao/status/974698569331625984)
   due to the sandbox blocking `bind()`. Apparently for v59 the only workaround is to set `security.sandbox.content.level=0`
   in `about:config` (which is not a good idea unless you really understand the consequences), but luckily due to an
